@@ -44,11 +44,11 @@ struct Player_Info {
 };
 
 void print_data(const unsigned char *data, struct ip_header *);
-void print_ip_header(const unsigned char *data);
 void save_data_to_file(int x, int y, int player_num); // int형 좌표를 파일에 저장하는 함수
 
 struct Player_Info *Player_Info_Array;                // player정보들을 담은 구조체배열
 int player;                                           // 플레이어 수
+int past_x = -1, past_y = -1;                         // 이전 위치를 저장하는 변수
 
 int main() {
     pcap_if_t *alldevs;
@@ -170,17 +170,9 @@ int main() {
 
     /* 네트워크 디바이스 종료 */
     pcap_close(adhandle);
-
     free(Player_Info_Array);
 
     return 0;
-}
-
-void print_ip_header(const unsigned char *data) {
-    struct ip_header *ih = (struct ip_header *)data;
-    printf("\n============IP HEADER============\n");
-    printf("Src IP Addr : %s\n", inet_ntoa(ih->ip_srcaddr));
-    printf("Dst IP Addr : %s\n", inet_ntoa(ih->ip_destaddr));
 }
 
 void print_data(const unsigned char *data, struct ip_header *ih) {
@@ -208,19 +200,80 @@ void save_data_to_file(int x, int y, int player_num) {
     FILE *file;
     char file_name[50];
 
-    // 기존 내용을 저장할 배열 준비
-    char lines[MAX_LINE_LENGTH] = {0};
-
+    // player별 text파일 생성
     sprintf(file_name, "Footprint_Player[%d].txt", player_num);
 
-    // 파일 쓰기 모드로 열기 (기존 내용이 지워짐)
-    file = fopen(file_name, "w");
-    if (file == NULL) {
-        printf("파일을 열 수 없습니다.");
-        return;
+    // 파일 읽기 모드로 열기
+    file = fopen(file_name, "r");
+    if (file != NULL) {                  // file안에 데이터가 있다면
+
+        char temp[MAX_LINE_LENGTH] = ""; // 임시 변수
+        if (fgets(temp, sizeof(temp), file) == NULL) {
+            printf("파일이 비었습니다.\n");
+        }
+
+        // 끊어진 데이터 채우기 위해 past_x, past_y 값 저장
+        char *token = strtok(temp, " ");
+        past_x = atoi(token);
+        token = strtok(NULL, " ");
+        past_y = atoi(token);
+
+        // 파일 닫기
+        fclose(file);
     }
 
-    fprintf(file, "%d %d\n", x, y);
+    if (x == past_x && y != past_y) { // y축 이동
+        if (y < past_y) {             // 6시 방향으로 이동중
+            for (int new_y = past_y - 1; new_y > y; new_y--) {
+                for (int i = 1; i < player_num; i++)
+                    printf("\t\t\t\t");
 
+                printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
+
+                file = fopen(file_name, "w");
+                fprintf(file, "%d %d\n", x, new_y);
+                fclose(file);
+            }
+        } else { // 12시 방향으로 이동중
+            for (int new_y = past_y + 1; new_y < y; new_y++) {
+                for (int i = 1; i < player_num; i++)
+                    printf("\t\t\t\t");
+
+                printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
+
+                file = fopen(file_name, "w");
+                fprintf(file, "%d %d\n", x, new_y);
+                fclose(file);
+            }
+        }
+    } else if (x != past_x && y == past_y) { // x축 이동
+        if (x < past_x) {                    // 9시 방향으로 이동중
+            for (int new_x = past_x - 1; new_x > x; new_x--) {
+                for (int i = 1; i < player_num; i++)
+                    printf("\t\t\t\t");
+
+                printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
+
+                file = fopen(file_name, "w");
+                fprintf(file, "%d %d\n", new_x, y);
+                fclose(file);
+            }
+        } else { // 3시 방향으로 이동중
+            for (int new_x = past_x + 1; new_x < x; new_x++) {
+                for (int i = 1; i < player_num; i++)
+                    printf("\t\t\t\t");
+
+                printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
+
+                file = fopen(file_name, "w");
+                fprintf(file, "%d %d\n", new_x, y);
+                fclose(file);
+            }
+        }
+    }
+
+    // 마지막 데이터 저장
+    file = fopen(file_name, "w");
+    fprintf(file, "%d %d\n", x, y);
     fclose(file);
 }
