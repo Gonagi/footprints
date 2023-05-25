@@ -63,7 +63,6 @@ int main() {
     struct pcap_pkthdr *header;
     int i = 0;
     int num = 0;
-    int offset = 14;
     int res;
     char errbuf[PCAP_ERRBUF_SIZE];
     const unsigned char *pkt_data;
@@ -116,22 +115,20 @@ int main() {
     scanf("%d", &player);
 
     char src_IP[16];
-    int *src_Port = (int *)malloc(player * sizeof(int));
+    int src_Port;
     Player_Info_Array = (struct Player_Info *)malloc(player * sizeof(struct Player_Info));
 
     for (int p = 0; p < player; p++) {
-        src_IP[p] = (char *)malloc(16 * sizeof(char));
         printf("player[%d]정보 입력하세요\n", p + 1);
         Player_Info_Array[p].Player_Number = p + 1;
 
         printf("IP : ");
         scanf("%s", src_IP);
-        // Player_Info_Array[p].IP_Addr = (char*)malloc(16 * sizeof(char));
         strcpy(Player_Info_Array[p].IP_Addr, src_IP);
 
         printf("Port 입력 : ");
-        scanf("%d", &src_Port[p]);
-        Player_Info_Array[p].port = src_Port[p];
+        scanf("%d", &src_Port);
+        Player_Info_Array[p].port = src_Port;
 
         printf("\n");
     }
@@ -167,6 +164,7 @@ int main() {
         }
 
         if ((pkt_data[45] == 0x50) && (pkt_data[46] == 0x02)) { // 이동데이터 조건
+            int offset = 14;
             pkt_data = pkt_data + offset;
 
             struct ip_header *ih = (struct ip_header *)pkt_data;
@@ -191,9 +189,9 @@ void print_data(const unsigned char *data, struct ip_header *ih) {
     char X_Str[10] = "";
     char Y_Str[10] = "";
 
-    for (int idx = 0; idx < 2; idx++) {
-        sprintf(X_Str + idx * 2, "%.2x", data[64 + idx]);
-        sprintf(Y_Str + idx * 2, "%.2x", data[68 + idx]);
+    for (int idx = 0; idx < 2; idx++) { // 하위 Byte만 big endian을 따라 string에 저장
+        sprintf(X_Str + idx * 2, "%.2x", data[65 - idx]);
+        sprintf(Y_Str + idx * 2, "%.2x", data[69 - idx]);
     }
 
     int x = (int)strtol(X_Str, NULL, 16); // 16진수의 X데이터 int로 변환
@@ -210,46 +208,31 @@ void print_data(const unsigned char *data, struct ip_header *ih) {
 
 void save_data_to_file(int x, int y, int player_num) {
     FILE *file;
-    char file_name[20];
+    char file_name[50];
     int past_x = -1, past_y = -1; // 이전 위치를 저장하는 변수
-    int delete_count = 0;         // 지워야 하는줄 count한 변수
+    int delete_count = 0;         // 지워야 하는 줄을 count하는 변수
 
     // 기존 내용을 저장할 배열 준비
-    char lines[MAX_LINES][MAX_LINE_LENGTH];
+    char lines[MAX_LINES][MAX_LINE_LENGTH] = {0};
     int line_count = 0;
 
     sprintf(file_name, "Footprint_Player[%d].txt", player_num);
 
     // 파일 읽기 모드로 열기
     file = fopen(file_name, "r");
-    if (file == NULL) { // 파일에 읽을 내용이 없을 떄
-
-    } else {            // 파일에 읽을 내용이 있을 떄
+    if (file == NULL) {
+        /* printf("파일을 열 수 없습니다.");
+        return;*/
+    } else {
         // 파일 내용 읽기
         char line[MAX_LINE_LENGTH];
         while (fgets(line, sizeof(line), file) != NULL) {
             // 기존 내용을 배열에 저장
             if (line_count < MAX_LINES) {
                 strcpy(lines[line_count], line);
-                char *token = strtok(lines[line_count], " ");
-                past_x = atoi(token);
-                token = strtok(NULL, " ");
-                past_y = atoi(token);
                 line_count++;
             }
         }
-        if (x == past_x && y == past_y) // 이전 x,y와 현재 x,y가 같을 때
-            return;
-
-        if (x == past_x && y != past_y) // 이전 x와 현재 x가 같고 y는 다를 때
-            delete_count = abs(y - past_y);
-
-        else if (x != past_x && y == past_y) // 이전 x와 현재 x가 다르고 y는 같을 때
-            delete_count = abs(x - past_x);
-
-        else // 이전 x,y와 현재 x,y가 모두 다를 때
-            delete_count = 5 * abs(x - past_x);
-
         // 파일 닫기
         fclose(file);
     }
@@ -261,33 +244,18 @@ void save_data_to_file(int x, int y, int player_num) {
         return;
     }
 
-    // 기존 내용 쓰기
-    for (int i = 0; i < line_count - delete_count; i++) {
-        fprintf(file, "%s", lines[i]);
-    }
-
-    if (x == past_x && y != past_y) { // 이전 x와 현재 x가 같고 y는 다를 때
-        if (y < past_y) {
-            for (int idx = past_y - 1; idx > y; idx--)
-                fprintf(file, "%d %d\n", x, idx);
-        } else {
-            for (int idx = past_y + 1; idx < y; idx++)
-                fprintf(file, "%d %d\n", x, idx);
+    if (line_count > 0) {
+        // 기존 내용 쓰기
+        if (line_count >= MAX_LINES) {                 // 라인 수가 MAX_LINES와 같거나 큰 경우
+            delete_count = line_count - MAX_LINES + 1; // 지워야 하는 줄 수 계산 (+1은 새로운 데이터를 추가하기 위해)
+            for (int i = delete_count; i < line_count; i++) {
+                fprintf(file, "%s", lines[i]);
+            }
+        } else { // 라인 수가 MAX_LINES보다 작은 경우
+            for (int i = 0; i < line_count; i++) {
+                fprintf(file, "%s", lines[i]);
+            }
         }
-    }
-
-    else if (x != past_x && y == past_y) { // 이전 x와 현재 x가 다르고 y는 같을 때
-        if (x < past_x) {
-            for (int idx = past_x - 1; idx > x; idx--)
-                fprintf(file, "%d %d\n", idx, y);
-        } else {
-            for (int idx = past_x + 1; idx < x; idx++)
-                fprintf(file, "%d %d\n", idx, y);
-        }
-    }
-
-    else { // 이전 x,y와 현재 x,y가 모두 다를 때
-        ;
     }
 
     fprintf(file, "%d %d\n", x, y);
