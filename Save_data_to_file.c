@@ -6,7 +6,6 @@
 
 #define FILTER_RULE "udp"
 #define _CRT_SECURE_NO_WARNINGS
-#define MAX_LINES 100
 #define MAX_LINE_LENGTH 20
 
 #pragma warning(disable : 4996)
@@ -38,11 +37,6 @@ struct data_header {
 };                                  // 18
 #pragma pack(pop)                   // 이전 패딩 설정을 복원
 
-struct Data {
-    unsigned int x;
-    unsigned int y;
-};
-
 struct Player_Info {
     int Player_Number;
     char IP_Addr[16];
@@ -50,6 +44,7 @@ struct Player_Info {
 };
 
 void print_data(const unsigned char *data, struct ip_header *);
+void print_ip_header(const unsigned char *data);
 void save_data_to_file(int x, int y, int player_num); // int형 좌표를 파일에 저장하는 함수
 
 struct Player_Info *Player_Info_Array;                // player정보들을 담은 구조체배열
@@ -176,13 +171,16 @@ int main() {
     /* 네트워크 디바이스 종료 */
     pcap_close(adhandle);
 
-    // 메모리 해제
-    // for (int p = 0; p < player; p++) {
-    //    free(Player_Info_Array[p].IP_Addr);
-    //}
     free(Player_Info_Array);
 
     return 0;
+}
+
+void print_ip_header(const unsigned char *data) {
+    struct ip_header *ih = (struct ip_header *)data;
+    printf("\n============IP HEADER============\n");
+    printf("Src IP Addr : %s\n", inet_ntoa(ih->ip_srcaddr));
+    printf("Dst IP Addr : %s\n", inet_ntoa(ih->ip_destaddr));
 }
 
 void print_data(const unsigned char *data, struct ip_header *ih) {
@@ -209,53 +207,17 @@ void print_data(const unsigned char *data, struct ip_header *ih) {
 void save_data_to_file(int x, int y, int player_num) {
     FILE *file;
     char file_name[50];
-    int past_x = -1, past_y = -1; // 이전 위치를 저장하는 변수
-    int delete_count = 0;         // 지워야 하는 줄을 count하는 변수
 
     // 기존 내용을 저장할 배열 준비
-    char lines[MAX_LINES][MAX_LINE_LENGTH] = {0};
-    int line_count = 0;
+    char lines[MAX_LINE_LENGTH] = {0};
 
     sprintf(file_name, "Footprint_Player[%d].txt", player_num);
-
-    // 파일 읽기 모드로 열기
-    file = fopen(file_name, "r");
-    if (file == NULL) {
-        /* printf("파일을 열 수 없습니다.");
-        return;*/
-    } else {
-        // 파일 내용 읽기
-        char line[MAX_LINE_LENGTH];
-        while (fgets(line, sizeof(line), file) != NULL) {
-            // 기존 내용을 배열에 저장
-            if (line_count < MAX_LINES) {
-                strcpy(lines[line_count], line);
-                line_count++;
-            }
-        }
-        // 파일 닫기
-        fclose(file);
-    }
 
     // 파일 쓰기 모드로 열기 (기존 내용이 지워짐)
     file = fopen(file_name, "w");
     if (file == NULL) {
         printf("파일을 열 수 없습니다.");
         return;
-    }
-
-    if (line_count > 0) {
-        // 기존 내용 쓰기
-        if (line_count >= MAX_LINES) {                 // 라인 수가 MAX_LINES와 같거나 큰 경우
-            delete_count = line_count - MAX_LINES + 1; // 지워야 하는 줄 수 계산 (+1은 새로운 데이터를 추가하기 위해)
-            for (int i = delete_count; i < line_count; i++) {
-                fprintf(file, "%s", lines[i]);
-            }
-        } else { // 라인 수가 MAX_LINES보다 작은 경우
-            for (int i = 0; i < line_count; i++) {
-                fprintf(file, "%s", lines[i]);
-            }
-        }
     }
 
     fprintf(file, "%d %d\n", x, y);
