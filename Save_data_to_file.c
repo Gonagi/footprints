@@ -7,6 +7,7 @@
 #define FILTER_RULE "udp"
 #define _CRT_SECURE_NO_WARNINGS
 #define MAX_LINE_LENGTH 20
+#define Max 10
 
 #pragma warning(disable : 4996)
 #pragma comment(lib, "wpcap.lib")
@@ -48,9 +49,18 @@ void save_data_to_file(int x, int y, int player_num); // int형 좌표를 파일
 
 struct Player_Info *Player_Info_Array;                // player정보들을 담은 구조체배열
 int player;                                           // 플레이어 수
-int past_x = 250, past_y = 350;                       // 이전 위치를 저장하는 변수 (처음에는 침대 위치 저장)
-bool is_out = false;                                  // 집 밖에 나와있는지 확인하는 변수
-bool is_first = false;                                // 나와서 얻은 위치 데이터가 처음인지 확인하는 변수
+int past_x[Max] = {
+    0,
+},
+    past_y[Max] = {
+        350,
+}; // 이전 위치를 저장하는 변수 (처음에는 침대 위치 저장)
+bool is_out[Max] = {
+    false,
+}; // 집 밖에 나와있는지 확인하는 변수
+bool is_first[Max] = {
+    false,
+}; // 나와서 얻은 위치 데이터가 처음인지 확인하는 변수
 
 int main() {
     pcap_if_t *alldevs;
@@ -205,26 +215,28 @@ void save_data_to_file(int x, int y, int player_num) {
     // player별 text파일 생성
     sprintf(file_name, "Footprint_Player[%d].txt", player_num);
 
-    if (!is_out) { // 집안에 있을 때
-        printf("집\n");
+    if (!is_out[player_num - 1]) { // 집안에 있을 때
+        for (int i = 1; i < player_num; i++)
+            printf("\t\t\t\t");
+        printf("Player[%d] in house\n", player_num);
 
-        // past_x와 x의 차이가 갑자기 커질때 밖으로 갔다고 판단함
-        if (abs(past_x - x) > 200) { // 집 현관 도착
-            past_x = x;
-            past_y = y;
+        // 집안의 y데이터는 334 ~ 501이다.
+        if (y < 334) { // 집 현관 도착
+            past_x[player_num - 1] = x;
+            past_y[player_num - 1] = y;
 
-            is_out = !is_out; // 이제 외출한다
-            is_first = true;
+            is_out[player_num - 1] = !is_out[player_num - 1]; // 이제 외출한다
+            is_first[player_num - 1] = true;
         }
         return;
     }
 
     else { // 집 밖에 있을 때
-        // past_x, past_y를 바꾸지않으면 위치 데이터의 연속된값을 구할 때 예외가 발생한다.
-        if (is_first) { // 이제 막 나왔으면 past_x, past_y의 값을 바꾼다.
-            past_x = x;
-            past_y = y;
-            is_first = false;
+        // past_x[player_num-1], past_y[player_num-1]를 바꾸지않으면 위치 데이터의 연속된값을 구할 때 예외가 발생한다.
+        if (is_first[player_num - 1]) { // 이제 막 나왔으면 past_x[player_num-1], past_y[player_num-1]의 값을 바꾼다.
+            past_x[player_num - 1] = x;
+            past_y[player_num - 1] = y;
+            is_first[player_num - 1] = false;
         }
 
         // 파일 읽기 모드로 열기
@@ -236,27 +248,27 @@ void save_data_to_file(int x, int y, int player_num) {
                 printf("파일이 비었습니다.\n");
             }
 
-            // 끊어진 데이터 채우기 위해 past_x, past_y 값 저장
+            // 끊어진 데이터 채우기 위해 past_x[player_num-1], past_y[player_num-1] 값 저장
             char *token = strtok(temp, " ");
-            past_x = atoi(token);
+            past_x[player_num - 1] = atoi(token);
             token = strtok(NULL, " ");
-            past_y = atoi(token);
+            past_y[player_num - 1] = atoi(token);
 
             // 파일 닫기
             fclose(file);
 
-            // 이상치 발생(past_x와 x의 차이가 크면 집에 들어왔다고 판단)
-            if (abs(past_x - x) > 50) { // 현관에 들어오면 past_x, past_y값을 다시 바꾼다.
-                past_x = 50;
-                past_y = 330;
-                is_out = !is_out;
+            // 이상치 발생(past_x[player_num-1]와 x의 차이가 크면 집에 들어왔다고 판단)
+            if (abs(past_x[player_num - 1] - x) > 400) { // 현관에 들어오면 past_x[player_num-1], past_y[player_num-1]값을 다시 바꾼다.
+                past_x[player_num - 1] = 0;
+                past_y[player_num - 1] = 350;
+                is_out[player_num - 1] = !is_out[player_num - 1];
                 return;
             }
 
-            else {                                // 아직 밖에 있다.
-                if (x == past_x && y != past_y) { // y축 이동
-                    if (y < past_y) {             // 6시 방향으로 이동중
-                        for (int new_y = past_y - 1; new_y > y; new_y--) {
+            else {                                                                // 아직 밖에 있다.
+                if (x == past_x[player_num - 1] && y != past_y[player_num - 1]) { // y축 이동
+                    if (y < past_y[player_num - 1]) {                             // 6시 방향으로 이동중
+                        for (int new_y = past_y[player_num - 1] - 1; new_y > y; new_y--) {
                             for (int i = 1; i < player_num; i++)
                                 printf("\t\t\t\t");
 
@@ -267,7 +279,7 @@ void save_data_to_file(int x, int y, int player_num) {
                             fclose(file);
                         }
                     } else { // 12시 방향으로 이동중
-                        for (int new_y = past_y + 1; new_y < y; new_y++) {
+                        for (int new_y = past_y[player_num - 1] + 1; new_y < y; new_y++) {
                             for (int i = 1; i < player_num; i++)
                                 printf("\t\t\t\t");
 
@@ -278,9 +290,9 @@ void save_data_to_file(int x, int y, int player_num) {
                             fclose(file);
                         }
                     }
-                } else if (x != past_x && y == past_y) { // x축 이동
-                    if (x < past_x) {                    // 9시 방향으로 이동중
-                        for (int new_x = past_x - 1; new_x > x; new_x--) {
+                } else if (x != past_x[player_num - 1] && y == past_y[player_num - 1]) { // x축 이동
+                    if (x < past_x[player_num - 1]) {                                    // 9시 방향으로 이동중
+                        for (int new_x = past_x[player_num - 1] - 1; new_x > x; new_x--) {
                             for (int i = 1; i < player_num; i++)
                                 printf("\t\t\t\t");
 
@@ -291,7 +303,7 @@ void save_data_to_file(int x, int y, int player_num) {
                             fclose(file);
                         }
                     } else { // 3시 방향으로 이동중
-                        for (int new_x = past_x + 1; new_x < x; new_x++) {
+                        for (int new_x = past_x[player_num - 1] + 1; new_x < x; new_x++) {
                             for (int i = 1; i < player_num; i++)
                                 printf("\t\t\t\t");
 
@@ -304,13 +316,13 @@ void save_data_to_file(int x, int y, int player_num) {
                     }
                 }
 
-                else if (x != past_x && y != past_y) { // 대각선 이동
+                else if (x != past_x[player_num - 1] && y != past_y[player_num - 1]) { // 대각선 이동
 
-                    if (x < past_x) {                  // 왼쪽으로 이동중
-                        if (y < past_y) {              // 7시 방향으로 이동중
-                            int new_y = past_y - 1;    // 새로 찍힐 y값을 저장한 변수
+                    if (x < past_x[player_num - 1]) {                                  // 왼쪽으로 이동중
+                        if (y < past_y[player_num - 1]) {                              // 7시 방향으로 이동중
+                            int new_y = past_y[player_num - 1] - 1;                    // 새로 찍힐 y값을 저장한 변수
 
-                            for (int new_x = past_x - 1; new_x > x; new_x--) {
+                            for (int new_x = past_x[player_num - 1] - 1; new_x > x; new_x--) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
@@ -325,8 +337,8 @@ void save_data_to_file(int x, int y, int player_num) {
                         }
 
                         else { // 11시 방향으로 이동중
-                            int new_y = past_y + 1;
-                            for (int new_x = past_x - 1; new_x > x; new_x--) {
+                            int new_y = past_y[player_num - 1] + 1;
+                            for (int new_x = past_x[player_num - 1] - 1; new_x > x; new_x--) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
@@ -341,11 +353,11 @@ void save_data_to_file(int x, int y, int player_num) {
                         }
                     }
 
-                    else {                          // 오른쪽으로 이동중
-                        if (y > past_y) {           // 1시 방향으로 이동중
-                            int new_y = past_y + 1; // 새로 찍힐 y값을 저장한 변수
+                    else {                                      // 오른쪽으로 이동중
+                        if (y > past_y[player_num - 1]) {       // 1시 방향으로 이동중
+                            int new_y = past_y[player_num - 1]; // 새로 찍힐 y값을 저장한 변수
 
-                            for (int new_x = past_x + 1; new_x < x; new_x++) {
+                            for (int new_x = past_x[player_num - 1]; new_x < x; new_x++) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
@@ -358,10 +370,10 @@ void save_data_to_file(int x, int y, int player_num) {
                                 new_y++;
                             }
 
-                        } else {                    // 5시 방향으로 이동중
-                            int new_y = past_y - 1; // 새로 찍힐 y값을 저장한 변수
+                        } else {                                // 5시 방향으로 이동중
+                            int new_y = past_y[player_num - 1]; // 새로 찍힐 y값을 저장한 변수
 
-                            for (int new_x = past_x + 1; new_x < x; new_x++) {
+                            for (int new_x = past_x[player_num - 1]; new_x < x; new_x++) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
