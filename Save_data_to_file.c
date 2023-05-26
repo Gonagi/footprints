@@ -184,8 +184,8 @@ void print_data(const unsigned char *data, struct ip_header *ih) {
         sprintf(Y_Str + idx * 2, "%.2x", data[69 - idx]);
     }
 
-    int x = (int)strtol(X_Str, NULL, 16); // 16진수의 X데이터 int로 변환
-    int y = (int)strtol(Y_Str, NULL, 16); // 16진수의 Y데이터 int로 변환
+    int x = (int)strtol(X_Str, NULL, 16) - 17208;        // 16진수의 X데이터 int로 변환
+    int y = 17781 + (-1 * (int)strtol(Y_Str, NULL, 16)); // 16진수의 Y데이터 int로 변환
 
     // 현재 데이터의 player number 찾기
     for (int p = 0; p < player; p++) {
@@ -220,54 +220,127 @@ void save_data_to_file(int x, int y, int player_num) {
 
         // 파일 닫기
         fclose(file);
-    }
 
-    if (x == past_x && y != past_y) { // y축 이동
-        if (y < past_y) {             // 6시 방향으로 이동중
-            for (int new_y = past_y - 1; new_y > y; new_y--) {
-                for (int i = 1; i < player_num; i++)
-                    printf("\t\t\t\t");
+        if (x == past_x && y != past_y) { // y축 이동
+            if (y < past_y) {             // 6시 방향으로 이동중
+                for (int new_y = past_y - 1; new_y > y; new_y--) {
+                    for (int i = 1; i < player_num; i++)
+                        printf("\t\t\t\t");
 
-                printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
+                    printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
 
-                file = fopen(file_name, "w");
-                fprintf(file, "%d %d\n", x, new_y);
-                fclose(file);
+                    file = fopen(file_name, "w");
+                    fprintf(file, "%d %d\n", x, new_y);
+                    fclose(file);
+                }
+            } else { // 12시 방향으로 이동중
+                for (int new_y = past_y + 1; new_y < y; new_y++) {
+                    for (int i = 1; i < player_num; i++)
+                        printf("\t\t\t\t");
+
+                    printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
+
+                    file = fopen(file_name, "w");
+                    fprintf(file, "%d %d\n", x, new_y);
+                    fclose(file);
+                }
             }
-        } else { // 12시 방향으로 이동중
-            for (int new_y = past_y + 1; new_y < y; new_y++) {
-                for (int i = 1; i < player_num; i++)
-                    printf("\t\t\t\t");
+        } else if (x != past_x && y == past_y) { // x축 이동
+            if (x < past_x) {                    // 9시 방향으로 이동중
+                for (int new_x = past_x - 1; new_x > x; new_x--) {
+                    for (int i = 1; i < player_num; i++)
+                        printf("\t\t\t\t");
 
-                printf("Player[%d] : (%d, %d)\n", player_num, x, new_y);
+                    printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
 
-                file = fopen(file_name, "w");
-                fprintf(file, "%d %d\n", x, new_y);
-                fclose(file);
+                    file = fopen(file_name, "w");
+                    fprintf(file, "%d %d\n", new_x, y);
+                    fclose(file);
+                }
+            } else { // 3시 방향으로 이동중
+                for (int new_x = past_x + 1; new_x < x; new_x++) {
+                    for (int i = 1; i < player_num; i++)
+                        printf("\t\t\t\t");
+
+                    printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
+
+                    file = fopen(file_name, "w");
+                    fprintf(file, "%d %d\n", new_x, y);
+                    fclose(file);
+                }
             }
         }
-    } else if (x != past_x && y == past_y) { // x축 이동
-        if (x < past_x) {                    // 9시 방향으로 이동중
-            for (int new_x = past_x - 1; new_x > x; new_x--) {
-                for (int i = 1; i < player_num; i++)
-                    printf("\t\t\t\t");
 
-                printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
+        else if (x != past_x && y != past_y) { // 대각선 이동
 
-                file = fopen(file_name, "w");
-                fprintf(file, "%d %d\n", new_x, y);
-                fclose(file);
+            if (x < past_x) {                  // 왼쪽으로 이동중
+                if (y < past_y) {              // 7시 방향으로 이동중
+                    int new_y = past_y - 1;    // 새로 찍힐 y값을 저장한 변수
+
+                    for (int new_x = past_x - 1; new_x > x; new_x--) {
+                        for (int i = 1; i < player_num; i++)
+                            printf("\t\t\t\t");
+
+                        printf("Player[%d] : (%d, %d)\n", player_num, new_x, new_y);
+
+                        file = fopen(file_name, "w");
+                        fprintf(file, "%d %d\n", new_x, new_y);
+                        fclose(file);
+
+                        new_y--;
+                    }
+                }
+
+                else { // 11시 방향으로 이동중
+                    int new_y = past_y + 1;
+                    for (int new_x = past_x - 1; new_x > x; new_x--) {
+                        for (int i = 1; i < player_num; i++)
+                            printf("\t\t\t\t");
+
+                        printf("Player[%d] : (%d, %d)\n", player_num, new_x, new_y);
+
+                        file = fopen(file_name, "w");
+                        fprintf(file, "%d %d\n", new_x, new_y);
+                        fclose(file);
+
+                        new_y++;
+                    }
+                }
             }
-        } else { // 3시 방향으로 이동중
-            for (int new_x = past_x + 1; new_x < x; new_x++) {
-                for (int i = 1; i < player_num; i++)
-                    printf("\t\t\t\t");
 
-                printf("Player[%d] : (%d, %d)\n", player_num, new_x, y);
+            else {                          // 오른쪽으로 이동중
+                if (y > past_y) {           // 1시 방향으로 이동중
+                    int new_y = past_y + 1; // 새로 찍힐 y값을 저장한 변수
 
-                file = fopen(file_name, "w");
-                fprintf(file, "%d %d\n", new_x, y);
-                fclose(file);
+                    for (int new_x = past_x + 1; new_x < x; new_x++) {
+                        for (int i = 1; i < player_num; i++)
+                            printf("\t\t\t\t");
+
+                        printf("Player[%d] : (%d, %d)\n", player_num, new_x, new_y);
+
+                        file = fopen(file_name, "w");
+                        fprintf(file, "%d %d\n", new_x, new_y);
+                        fclose(file);
+
+                        new_y++;
+                    }
+
+                } else {                    // 5시 방향으로 이동중
+                    int new_y = past_y - 1; // 새로 찍힐 y값을 저장한 변수
+
+                    for (int new_x = past_x + 1; new_x < x; new_x++) {
+                        for (int i = 1; i < player_num; i++)
+                            printf("\t\t\t\t");
+
+                        printf("Player[%d] : (%d, %d)\n", player_num, new_x, new_y);
+
+                        file = fopen(file_name, "w");
+                        fprintf(file, "%d %d\n", new_x, new_y);
+                        fclose(file);
+
+                        new_y--;
+                    }
+                }
             }
         }
     }
