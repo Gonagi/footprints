@@ -353,11 +353,11 @@ void save_data_to_file(int x, int y, int player_num) {
                         }
                     }
 
-                    else {                                      // 오른쪽으로 이동중
-                        if (y > past_y[player_num - 1]) {       // 1시 방향으로 이동중
-                            int new_y = past_y[player_num - 1]; // 새로 찍힐 y값을 저장한 변수
+                    else {                                          // 오른쪽으로 이동중
+                        if (y > past_y[player_num - 1]) {           // 1시 방향으로 이동중
+                            int new_y = past_y[player_num - 1] + 1; // 새로 찍힐 y값을 저장한 변수
 
-                            for (int new_x = past_x[player_num - 1]; new_x < x; new_x++) {
+                            for (int new_x = past_x[player_num - 1] + 1; new_x < x; new_x++) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
@@ -370,10 +370,10 @@ void save_data_to_file(int x, int y, int player_num) {
                                 new_y++;
                             }
 
-                        } else {                                // 5시 방향으로 이동중
-                            int new_y = past_y[player_num - 1]; // 새로 찍힐 y값을 저장한 변수
+                        } else {                                    // 5시 방향으로 이동중
+                            int new_y = past_y[player_num - 1] - 1; // 새로 찍힐 y값을 저장한 변수
 
-                            for (int new_x = past_x[player_num - 1]; new_x < x; new_x++) {
+                            for (int new_x = past_x[player_num - 1] + 1; new_x < x; new_x++) {
                                 for (int i = 1; i < player_num; i++)
                                     printf("\t\t\t\t");
 
